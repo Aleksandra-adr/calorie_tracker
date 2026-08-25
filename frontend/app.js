@@ -36,6 +36,7 @@ function init() {
   els.reloadBtn = document.getElementById('reload-btn');
   els.tableBody = document.getElementById('meals-tbody');
   els.summaryRow = document.getElementById('summary-row');
+  els.normWarnings = document.getElementById('norm-warnings');
   els.statusBanner = document.getElementById('status-banner');
   els.apiBaseLabel = document.getElementById('api-base-label');
 
@@ -181,6 +182,17 @@ async function apiCreateMeal(meal) {
   return rawMeal ? mapMealFromApi(rawMeal) : null;
 }
 
+/**
+ * GET /meals/summary?date=... — итоги за день + норма + флаги превышения,
+ * посчитанные backend'ом (см. api/API_CONTRACT.md, раздел "GET /meals/summary").
+ * Норма там читается из workflows/config.json — единого источника истины
+ * для значений 2000/50/65/300, так что здесь их не дублируем.
+ */
+async function apiGetSummary(date) {
+  const qs = new URLSearchParams({ date }).toString();
+  return apiRequest(`/meals/summary?${qs}`, { method: 'GET' });
+}
+
 /* ---------------------------------------------------------------------- */
 /* Загрузка и отрисовка таблицы за день                                   */
 /* ---------------------------------------------------------------------- */
@@ -189,12 +201,22 @@ async function loadMeals(date) {
   setStatus('');
   setTableLoading();
   try {
-    const meals = await apiListMeals(date);
+    // Список приёмов пищи и сводку с нормой запрашиваем параллельно.
+    // Сводка (GET /meals/summary) — необязательная "надстройка": если она
+    // недоступна по какой-то причине, отдельно гасим её ошибку в null и
+    // просто не показываем предупреждения о норме, но таблица всё равно
+    // отрисовывается по основному списку меню.
+    const [meals, summary] = await Promise.all([
+      apiListMeals(date),
+      apiGetSummary(date).catch(() => null),
+    ]);
     state.meals = Array.isArray(meals) ? meals : [];
     renderTable();
+    renderNormWarnings(summary);
   } catch (err) {
     state.meals = [];
     renderTable();
+    renderNormWarnings(null);
     setStatus(err.message || 'Не удалось загрузить приёмы пищи.', 'warning');
   }
 }
@@ -202,6 +224,8 @@ async function loadMeals(date) {
 function setTableLoading() {
   els.tableBody.innerHTML = '<tr class="empty-row"><td colspan="6">Загрузка…</td></tr>';
   els.summaryRow.innerHTML = '';
+  els.summaryRow.classList.remove('near-norm', 'exceeded-norm');
+  els.normWarnings.innerHTML = '';
 }
 
 function renderTable() {
@@ -256,6 +280,56 @@ function renderSummary(meals) {
     <td class="num">${formatNumber(totals.fat)}</td>
     <td class="num">${formatNumber(totals.carbs)}</td>
   `;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Предупреждение о превышении дневной нормы                              */
+/* ---------------------------------------------------------------------- */
+
+// Ключи совпадают с полями totals/diff в ответе GET /meals/summary
+// (api/API_CONTRACT.md), а не с "внутренними" именами формы (protein/fat).
+const NUTRIENT_WARNING_LABELS = {
+  calories: { name: 'калориям', unit: 'ккал' },
+  proteins: { name: 'белкам', unit: 'г' },
+  fats: { name: 'жирам', unit: 'г' },
+  carbs: { name: 'углеводам', unit: 'г' },
+};
+
+/**
+ * Показывает предупреждения под таблицей и подсвечивает итоговую строку,
+ * если summary.diff[k].status !== 'ok' хотя бы для одного показателя.
+ * summary может быть null (сводка недоступна) — тогда просто ничего не
+ * показываем, без ошибки на странице.
+ */
+function renderNormWarnings(summary) {
+  els.normWarnings.innerHTML = '';
+  els.summaryRow.classList.remove('near-norm', 'exceeded-norm');
+
+  if (!summary || !summary.diff) return;
+
+  let worstStatus = null; // 'near' | 'exceeded'
+  for (const key of Object.keys(NUTRIENT_WARNING_LABELS)) {
+    const d = summary.diff[key];
+    if (!d || d.status === 'ok') continue;
+
+    if (d.status === 'exceeded') {
+      worstStatus = 'exceeded';
+    } else if (worstStatus !== 'exceeded') {
+      worstStatus = 'near';
+    }
+
+    const label = NUTRIENT_WARNING_LABELS[key];
+    const badge = document.createElement('div');
+    badge.className = `norm-warning ${d.status}`;
+    badge.textContent =
+      d.status === 'exceeded'
+        ? `Превышена норма по ${label.name} на ${formatNumber(Math.abs(d.diff))} ${label.unit} (${d.percent_of_norm}% от нормы)`
+        : `Близко к норме по ${label.name}: ${d.percent_of_norm}% от нормы`;
+    els.normWarnings.appendChild(badge);
+  }
+
+  if (worstStatus === 'exceeded') els.summaryRow.classList.add('exceeded-norm');
+  else if (worstStatus === 'near') els.summaryRow.classList.add('near-norm');
 }
 
 /* ---------------------------------------------------------------------- */
