@@ -89,3 +89,48 @@ class MealEntryResponse(MealEntryBase):
 
 class ErrorResponse(BaseModel):
     detail: str
+
+
+class ProductResponse(BaseModel):
+    """One entry from the built-in product reference catalog (GET /products).
+
+    Values are PER 100 G of the product - unlike MealEntry* above, which
+    describe an actual portion. Field names deliberately match
+    `calculations.portion.NutritionPer100g` (`protein`/`fat`/`carbs`,
+    singular) rather than `MealEntryBase` (`proteins`/`fats`, plural), to
+    make the "this is a per-100g reference value, not a portion" distinction
+    visible in the shape of the response itself.
+    """
+
+    name: str = Field(..., description="Product name, e.g. 'Банан'")
+    calories: float = Field(..., ge=0, description="Calories per 100 g")
+    protein: float = Field(..., ge=0, description="Protein per 100 g, grams")
+    fat: float = Field(..., ge=0, description="Fat per 100 g, grams")
+    carbs: float = Field(..., ge=0, description="Carbohydrates per 100 g, grams")
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {"name": "Банан", "calories": 89, "protein": 1.1, "fat": 0.3, "carbs": 23.0}
+        }
+    )
+
+
+class PortionResponse(BaseModel):
+    """Response for GET /products/portion - a recalculated portion.
+
+    Unlike ProductResponse (per 100 g), this describes an actual portion of
+    the given weight, so field names match MealEntryBase (`calories`,
+    `proteins`, `fats`, `carbs`, plural) - the frontend can drop these
+    values straight into the meal-creation form fields. The numbers here
+    are produced by `calculations.calculate_portion`, the same function
+    tested in `tests/test_calculations.py`, not re-implemented here - this
+    endpoint exists specifically so the frontend never has to duplicate
+    the "per_100g * weight_g / 100" formula in JavaScript.
+    """
+
+    product_name: str
+    weight_grams: float = Field(..., ge=0, le=100000)
+    calories: float = Field(..., ge=0)
+    proteins: float = Field(..., ge=0)
+    fats: float = Field(..., ge=0)
+    carbs: float = Field(..., ge=0)

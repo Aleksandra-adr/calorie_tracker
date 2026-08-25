@@ -14,6 +14,15 @@ const API_BASE_URL = 'http://localhost:8000';
 
 const state = {
   meals: [],
+  // Продукт, выбранный из справочника (GET /products) - пока он не сброшен,
+  // изменение веса автоматически пересчитывает калории/БЖУ через
+  // GET /products/portion. Ручное редактирование полей калорий/БЖУ или
+  // текста продукта сбрасывает выбор (см. onNutritionFieldManualEdit /
+  // onProductInput) - это единственная точка, где "источник истины" для
+  // формы переключается между "из справочника" и "введено вручную".
+  selectedProduct: null,
+  suggestions: [],
+  activeSuggestionIndex: -1,
 };
 
 const els = {};
@@ -23,6 +32,8 @@ document.addEventListener('DOMContentLoaded', init);
 function init() {
   els.form = document.getElementById('meal-form');
   els.product = document.getElementById('field-product');
+  els.productSuggestions = document.getElementById('product-suggestions');
+  els.catalogHint = document.getElementById('product-catalog-hint');
   els.weight = document.getElementById('field-weight');
   els.mealDate = document.getElementById('field-date');
   els.calories = document.getElementById('field-calories');
@@ -49,10 +60,36 @@ function init() {
   els.dayPicker.addEventListener('change', () => loadMeals(els.dayPicker.value));
   els.reloadBtn.addEventListener('click', () => loadMeals(els.dayPicker.value));
 
+  els.product.addEventListener('input', onProductInput);
+  els.product.addEventListener('keydown', onProductKeydown);
+  els.product.addEventListener('blur', () => {
+    // Небольшая задержка: клик по подсказке тоже вызывает blur у поля ввода,
+    // и без задержки список подсказок успел бы скрыться раньше, чем сработает
+    // mousedown-обработчик выбора подсказки.
+    setTimeout(hideSuggestions, 150);
+  });
+  els.weight.addEventListener('input', onWeightInput);
+  for (const field of [els.calories, els.protein, els.fat, els.carbs]) {
+    field.addEventListener('input', onNutritionFieldManualEdit);
+  }
+
   // Рисуем пустую таблицу сразу, не дожидаясь сети — страница не должна
   // выглядеть сломанной, если backend недоступен (например, открыта как file://).
   renderTable();
   loadMeals(today);
+}
+
+/**
+ * Простой debounce: откладывает вызов fn на delayMs после последнего
+ * обращения, сбрасывая таймер при каждом новом вызове. Используется, чтобы
+ * не бить по /products и /products/portion на каждое нажатие клавиши.
+ */
+function debounce(fn, delayMs) {
+  let timer = null;
+  return (...args) => {
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(() => fn(...args), delayMs);
+  };
 }
 
 function todayIso() {
@@ -181,6 +218,33 @@ async function apiCreateMeal(meal) {
   return rawMeal ? mapMealFromApi(rawMeal) : null;
 }
 
+/**
+ * GET /products?q=... - регистронезависимый поиск по подстроке в названии
+ * продукта из встроенного справочника (storage/product_catalog.py).
+ * Возвращает [] и для отсутствия совпадений, и для сетевой ошибки - вызывающий
+ * код (runProductSearch) сам решает, что делать с пустым списком.
+ */
+async function apiSearchProducts(query) {
+  const qs = new URLSearchParams({ q: query }).toString();
+  const results = await apiRequest(`/products?${qs}`, { method: 'GET' });
+  return Array.isArray(results) ? results : [];
+}
+
+/**
+ * GET /products/portion?product_name=...&weight_grams=... - пересчёт
+ * калорий/БЖУ порции. Формула "на_100г * вес / 100" реализована ОДИН раз, в
+ * calculations.calculate_portion (Python); этот запрос - единственный способ,
+ * которым фронтенд получает пересчитанные числа, чтобы не дублировать эту
+ * арифметику в JS.
+ */
+async function apiGetPortion(productName, weightGrams) {
+  const qs = new URLSearchParams({
+    product_name: productName,
+    weight_grams: String(weightGrams),
+  }).toString();
+  return apiRequest(`/products/portion?${qs}`, { method: 'GET' });
+}
+
 /* ---------------------------------------------------------------------- */
 /* Загрузка и отрисовка таблицы за день                                   */
 /* ---------------------------------------------------------------------- */
@@ -259,6 +323,166 @@ function renderSummary(meals) {
 }
 
 /* ---------------------------------------------------------------------- */
+/* Автоподстановка продукта из справочника                                */
+/* ---------------------------------------------------------------------- */
+
+const debouncedSearchProducts = debounce(runProductSearch, 300);
+const debouncedRecalcPortion = debounce(recalcPortionFromSelectedProduct, 250);
+
+function onProductInput() {
+  // Любое ручное изменение текста в поле "Продукт" аннулирует ранее
+  // выбранный продукт справочника - изменение веса больше не будет
+  // автоматически пересчитывать калории/БЖУ, пока пользователь не выберет
+  // (тот же самый или другой) продукт из списка подсказок снова.
+  if (state.selectedProduct) {
+    state.selectedProduct = null;
+    setCatalogHint('');
+  }
+  const query = els.product.value.trim();
+  if (!query) {
+    hideSuggestions();
+    return;
+  }
+  debouncedSearchProducts(query);
+}
+
+async function runProductSearch(query) {
+  let results;
+  try {
+    results = await apiSearchProducts(query);
+  } catch (_err) {
+    // Поиск - вспомогательная функция; если backend недоступен, просто не
+    // показываем подсказки, не мешая ручному вводу калорий/БЖУ.
+    hideSuggestions();
+    return;
+  }
+  // Защита от "гонки" ответов: пока запрос летал по сети, пользователь мог
+  // напечатать что-то другое (или очистить поле) - применяем результат
+  // только если текст в поле всё ещё совпадает с тем, что искали.
+  if (els.product.value.trim() !== query) return;
+  renderSuggestions(results);
+}
+
+function renderSuggestions(products) {
+  state.suggestions = products;
+  state.activeSuggestionIndex = -1;
+  els.productSuggestions.innerHTML = '';
+
+  if (!products.length) {
+    hideSuggestions();
+    return;
+  }
+
+  products.forEach((product, index) => {
+    const li = document.createElement('li');
+    li.dataset.index = String(index);
+    li.innerHTML = `
+      <span class="suggestion-name">${escapeHtml(product.name)}</span>
+      <span class="suggestion-meta">${formatNumber(product.calories)} ккал / 100 г</span>
+    `;
+    // mousedown (а не click) срабатывает раньше, чем blur поля ввода, и мы
+    // отменяем его дефолтное действие - иначе поле теряло бы фокус (и по
+    // таймеру скрывался список) прежде, чем успеет обработаться выбор.
+    li.addEventListener('mousedown', (event) => {
+      event.preventDefault();
+      selectProduct(product);
+    });
+    els.productSuggestions.appendChild(li);
+  });
+
+  els.productSuggestions.hidden = false;
+}
+
+function hideSuggestions() {
+  els.productSuggestions.hidden = true;
+  els.productSuggestions.innerHTML = '';
+  state.suggestions = [];
+  state.activeSuggestionIndex = -1;
+}
+
+function onProductKeydown(event) {
+  if (els.productSuggestions.hidden || !state.suggestions.length) return;
+  const count = state.suggestions.length;
+
+  if (event.key === 'ArrowDown') {
+    event.preventDefault();
+    state.activeSuggestionIndex = (state.activeSuggestionIndex + 1) % count;
+    updateActiveSuggestionHighlight();
+  } else if (event.key === 'ArrowUp') {
+    event.preventDefault();
+    state.activeSuggestionIndex = (state.activeSuggestionIndex - 1 + count) % count;
+    updateActiveSuggestionHighlight();
+  } else if (event.key === 'Enter' && state.activeSuggestionIndex >= 0) {
+    event.preventDefault();
+    selectProduct(state.suggestions[state.activeSuggestionIndex]);
+  } else if (event.key === 'Escape') {
+    hideSuggestions();
+  }
+}
+
+function updateActiveSuggestionHighlight() {
+  const items = els.productSuggestions.querySelectorAll('li');
+  items.forEach((li, idx) => li.classList.toggle('active', idx === state.activeSuggestionIndex));
+}
+
+function selectProduct(product) {
+  state.selectedProduct = product;
+  els.product.value = product.name;
+  hideSuggestions();
+  setCatalogHint(
+    `Из справочника (на 100 г): ${formatNumber(product.calories)} ккал, ` +
+      `Б ${formatNumber(product.protein)} / Ж ${formatNumber(product.fat)} / У ${formatNumber(product.carbs)}.`
+  );
+  recalcPortionFromSelectedProduct();
+}
+
+function onWeightInput() {
+  if (!state.selectedProduct) return;
+  debouncedRecalcPortion();
+}
+
+/**
+ * Пересчитывает калории/БЖУ выбранного продукта на текущий вес из поля
+ * "Вес, г" и подставляет результат в поля формы. Вызывается сразу при
+ * выборе продукта из списка и повторно при каждом (debounced) изменении
+ * веса, пока выбор продукта не сброшен.
+ */
+async function recalcPortionFromSelectedProduct() {
+  const product = state.selectedProduct;
+  if (!product) return;
+
+  const weight = toNumber(els.weight.value);
+  if (!(weight >= 0)) return;
+
+  try {
+    const portion = await apiGetPortion(product.name, weight);
+    // Пока запрос летал по сети, пользователь мог сбросить/сменить выбор -
+    // не затираем то, что он ввёл вручную в этом случае.
+    if (state.selectedProduct !== product) return;
+    els.calories.value = portion.calories;
+    els.protein.value = portion.proteins;
+    els.fat.value = portion.fats;
+    els.carbs.value = portion.carbs;
+  } catch (err) {
+    els.formError.textContent = err.message || 'Не удалось пересчитать калории по весу.';
+  }
+}
+
+function onNutritionFieldManualEdit() {
+  // Пользователь правит калории/БЖУ вручную - это явный сигнал "я хочу
+  // задать значение сам", поэтому отключаем автоматический пересчёт по весу
+  // до тех пор, пока продукт не будет выбран из справочника снова.
+  if (state.selectedProduct) {
+    state.selectedProduct = null;
+    setCatalogHint('Калории/БЖУ изменены вручную — автопересчёт по весу отключён до повторного выбора продукта.');
+  }
+}
+
+function setCatalogHint(text) {
+  els.catalogHint.textContent = text || '';
+}
+
+/* ---------------------------------------------------------------------- */
 /* Форма добавления приёма пищи                                           */
 /* ---------------------------------------------------------------------- */
 
@@ -290,6 +514,9 @@ async function onSubmit(event) {
     els.form.reset();
     els.mealDate.value = savedDate;
     els.dayPicker.value = savedDate;
+    state.selectedProduct = null;
+    setCatalogHint('');
+    hideSuggestions();
     await loadMeals(savedDate);
   } catch (err) {
     els.formError.textContent = err.message || 'Не удалось сохранить приём пищи.';
