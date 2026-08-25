@@ -1,0 +1,7 @@
+{
+  "_comment": "Дневная норма по умолчанию для workflow daily_report.py. Переопределяется флагами --calories/--proteins/--fats/--carbs или другим файлом через --config.",
+  "calories": 2000,
+  "proteins": 50,
+  "fats": 65,
+  "carbs": 300
+}

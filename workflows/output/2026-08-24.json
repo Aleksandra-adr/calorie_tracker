@@ -1,0 +1,60 @@
+{
+  "date": "2026-08-24",
+  "generated_at": "2026-08-24T18:07:24",
+  "meals_count": 1,
+  "totals": {
+    "calories": 107.0,
+    "proteins": 1.3,
+    "fats": 0.4,
+    "carbs": 27.5
+  },
+  "norms": {
+    "calories": 2000,
+    "proteins": 50,
+    "fats": 65,
+    "carbs": 300
+  },
+  "diff": {
+    "calories": {
+      "actual": 107.0,
+      "norm": 2000.0,
+      "diff": -1893.0,
+      "percent_of_norm": 5.3
+    },
+    "proteins": {
+      "actual": 1.3,
+      "norm": 50.0,
+      "diff": -48.7,
+      "percent_of_norm": 2.6
+    },
+    "fats": {
+      "actual": 0.4,
+      "norm": 65.0,
+      "diff": -64.6,
+      "percent_of_norm": 0.6
+    },
+    "carbs": {
+      "actual": 27.5,
+      "norm": 300.0,
+      "diff": -272.5,
+      "percent_of_norm": 9.2
+    }
+  },
+  "meals": [
+    {
+      "id": 1,
+      "product_name": "Банан",
+      "weight_grams": 120.0,
+      "consumed_at": "2026-08-24T09:00:00",
+      "calories": 107.0,
+      "proteins": 1.3,
+      "fats": 0.4,
+      "carbs": 27.5
+    }
+  ],
+  "meta": {
+    "data_source": "api",
+    "aggregation_source": "calculations",
+    "combined_hash": "ba0bc0e09767652700b2a8f8fcfdeeefc26b2488be2df45e1104cda4fed8300c"
+  }
+}

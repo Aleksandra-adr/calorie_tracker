@@ -1,0 +1,4 @@
+# Зависимости зоны calculations/ (тесты и property-based тестирование).
+# Отдельный файл, чтобы не трогать общий requirements.txt проекта.
+pytest>=8.0
+hypothesis>=6.100

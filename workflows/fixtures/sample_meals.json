@@ -1,0 +1,52 @@
+[
+  {
+    "id": "mock-1",
+    "product": "Овсяная каша на воде",
+    "weight_g": 250,
+    "date": "2026-08-24",
+    "calories": 300,
+    "protein": 10,
+    "fat": 6,
+    "carbs": 50
+  },
+  {
+    "id": "mock-2",
+    "product": "Куриная грудка отварная",
+    "weight_g": 150,
+    "date": "2026-08-24",
+    "calories": 248,
+    "protein": 46.5,
+    "fat": 5.4,
+    "carbs": 0
+  },
+  {
+    "id": "mock-3",
+    "product": "Рис отварной",
+    "weight_g": 200,
+    "date": "2026-08-24",
+    "calories": 260,
+    "protein": 5.4,
+    "fat": 0.6,
+    "carbs": 56
+  },
+  {
+    "id": "mock-4",
+    "product": "Яблоко",
+    "weight_g": 180,
+    "date": "2026-08-24",
+    "calories": 94,
+    "protein": 0.5,
+    "fat": 0.3,
+    "carbs": 22
+  },
+  {
+    "id": "mock-5",
+    "product": "Гречка отварная",
+    "weight_g": 200,
+    "date": "2026-08-23",
+    "calories": 220,
+    "protein": 8,
+    "fat": 2,
+    "carbs": 42
+  }
+]

@@ -1,0 +1,269 @@
+:root {
+  --color-bg: #f5f7fa;
+  --color-surface: #ffffff;
+  --color-border: #dbe1e8;
+  --color-text: #1f2933;
+  --color-muted: #6b7684;
+  --color-primary: #2f7d5f;
+  --color-primary-hover: #256a4f;
+  --color-danger: #b3413d;
+  --color-danger-bg: #fdecea;
+  --color-warning-bg: #fff8e6;
+  --color-warning-border: #f0d38a;
+  --radius: 10px;
+  --shadow: 0 1px 2px rgba(20, 30, 40, 0.06), 0 1px 6px rgba(20, 30, 40, 0.05);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  background: var(--color-bg);
+  color: var(--color-text);
+  line-height: 1.4;
+}
+
+.page {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 24px 16px 64px;
+}
+
+header.app-header {
+  margin-bottom: 20px;
+}
+
+header.app-header h1 {
+  margin: 0 0 4px;
+  font-size: 1.6rem;
+}
+
+header.app-header p {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 0.9rem;
+}
+
+.card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.card h2 {
+  margin-top: 0;
+  font-size: 1.15rem;
+}
+
+.status-banner {
+  display: none;
+  border-radius: var(--radius);
+  padding: 10px 14px;
+  font-size: 0.9rem;
+  margin-bottom: 16px;
+  border: 1px solid transparent;
+}
+
+.status-banner.visible {
+  display: block;
+}
+
+.status-banner.warning {
+  background: var(--color-warning-bg);
+  border-color: var(--color-warning-border);
+  color: #7a5b0a;
+}
+
+.status-banner.error {
+  background: var(--color-danger-bg);
+  border-color: #f0b8b5;
+  color: var(--color-danger);
+}
+
+form.meal-form {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 12px 14px;
+  align-items: end;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.field.field-product {
+  grid-column: span 2;
+}
+
+.field label {
+  font-size: 0.8rem;
+  color: var(--color-muted);
+}
+
+.field input {
+  padding: 8px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  font-size: 0.95rem;
+  width: 100%;
+}
+
+.field input:focus {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 1px;
+}
+
+.form-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+button {
+  cursor: pointer;
+  font-size: 0.95rem;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  padding: 9px 16px;
+  font-weight: 600;
+}
+
+button.primary {
+  background: var(--color-primary);
+  color: #fff;
+}
+
+button.primary:hover {
+  background: var(--color-primary-hover);
+}
+
+button.secondary {
+  background: transparent;
+  color: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.form-error {
+  color: var(--color-danger);
+  font-size: 0.85rem;
+  min-height: 1.1em;
+}
+
+.day-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+.day-controls label {
+  font-size: 0.9rem;
+  color: var(--color-muted);
+}
+
+.day-controls input[type="date"] {
+  padding: 7px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  font-size: 0.95rem;
+}
+
+table.meals-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+}
+
+table.meals-table th,
+table.meals-table td {
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+table.meals-table th {
+  color: var(--color-muted);
+  font-weight: 600;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+table.meals-table td.num,
+table.meals-table th.num {
+  text-align: right;
+  white-space: nowrap;
+}
+
+tr.summary-row td {
+  font-weight: 700;
+  border-top: 2px solid var(--color-text);
+  border-bottom: none;
+}
+
+tr.empty-row td {
+  color: var(--color-muted);
+  font-style: italic;
+  text-align: center;
+  padding: 18px 10px;
+}
+
+td.actions-cell {
+  text-align: right;
+}
+
+button.remove-btn {
+  background: transparent;
+  border: 1px solid var(--color-border);
+  color: var(--color-danger);
+  padding: 4px 9px;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+button.remove-btn:hover {
+  background: var(--color-danger-bg);
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+.hint {
+  font-size: 0.8rem;
+  color: var(--color-muted);
+  margin-top: 10px;
+}
+
+code {
+  background: #eef1f4;
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 0.85em;
+}
+
+@media (max-width: 640px) {
+  form.meal-form {
+    grid-template-columns: 1fr 1fr;
+  }
+  .field.field-product {
+    grid-column: span 2;
+  }
+}
