@@ -7,7 +7,7 @@ description: Use when asked to run, regenerate, or explain the daily calorie rep
 
 Повторяемая процедура: взять записи о приёмах пищи за дату → посчитать
 итоги → сравнить с нормой → сохранить сводку → пометить как выполненное.
-Вся логика уже реализована в [`workflows/daily_report.py`](../../workflows/daily_report.py) —
+Вся логика уже реализована в [`workflows/daily_report.py`](../../../workflows/daily_report.py) —
 этот скилл описывает, **как** и **когда** его вызывать, и что означает
 каждый шаг, чтобы процедуру можно было использовать не задумываясь,
 что происходит внутри.
@@ -44,7 +44,7 @@ description: Use when asked to run, regenerate, or explain the daily calorie rep
 
 Норма по умолчанию — референс для рациона ~2000 ккал (2000 ккал / 50 г
 белка / 65 г жиров / 300 г углеводов), задана в
-[`workflows/config.json`](../../workflows/config.json). Переопределяется:
+[`workflows/config.json`](../../../workflows/config.json). Переопределяется:
 
 - своим JSON-файлом: `--config path/to/config.json`;
 - точечно через CLI: `--calories 2200 --proteins 120` (перекрывает и
@@ -99,6 +99,6 @@ python workflows/daily_report.py --date 2026-08-24 --force
 
 Если контракт `storage/`, `api/` или `calculations/` изменится
 несовместимо — сначала почитай
-[`workflows/DEPENDENCIES_ASSUMED.md`](../../workflows/DEPENDENCIES_ASSUMED.md),
+[`workflows/DEPENDENCIES_ASSUMED.md`](../../../workflows/DEPENDENCIES_ASSUMED.md),
 где отмечены точки подмены (`ADAPTER SWAP POINT` в коде), и поправь адаптер
 внутри `daily_report.py`, а не логику этого скилла.
