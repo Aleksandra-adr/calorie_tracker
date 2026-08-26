@@ -23,7 +23,18 @@
       <form id="meal-form" class="meal-form" novalidate>
         <div class="field field-product">
           <label for="field-product">Продукт</label>
-          <input type="text" id="field-product" name="product" placeholder="Например, куриная грудка" required />
+          <div class="autocomplete-wrap">
+            <input
+              type="text"
+              id="field-product"
+              name="product"
+              placeholder="Например, куриная грудка"
+              autocomplete="off"
+              required
+            />
+            <ul id="product-suggestions" class="suggestions-list" hidden></ul>
+          </div>
+          <span id="product-catalog-hint" class="catalog-hint"></span>
         </div>
 
         <div class="field">
@@ -62,8 +73,12 @@
         </div>
       </form>
       <p class="hint">
-        Калории и БЖУ указываются вручную для всей порции (не «на 100&nbsp;г»).
-        Подробности и обоснование — в отчёте разработчика фронтенда.
+        Начните вводить название продукта — если он есть в справочнике,
+        появится список подсказок; при выборе продукта калории и БЖУ
+        подставятся автоматически (пересчёт «на 100&nbsp;г» × вес) и
+        пересчитаются при изменении веса. Поля калорий и БЖУ можно
+        отредактировать вручную в любой момент — автоподстановка их не
+        перезапишет, пока не будет выбран продукт из списка заново.
       </p>
     </section>
 
