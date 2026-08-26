@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Трекер калорий</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <h1>Трекер калорий</h1>
+  <p class="hint">API: <code>http://localhost:8000</code> (константа <code>API_BASE_URL</code> в <code>app.js</code>).</p>
+
+  <section>
+    <h2>Добавить приём пищи</h2>
+    <form id="meal-form">
+      <label>Продукт<input type="text" id="f-product" required placeholder="Например, куриная грудка"></label>
+      <label>Вес, г<input type="number" id="f-weight" required min="0.01" step="any" placeholder="150"></label>
+      <label>Дата<input type="date" id="f-date" required></label>
+      <label>Калории, ккал<input type="number" id="f-calories" required min="0" step="any" placeholder="248"></label>
+      <label>Белки, г<input type="number" id="f-protein" required min="0" step="any" placeholder="46.5"></label>
+      <label>Жиры, г<input type="number" id="f-fat" required min="0" step="any" placeholder="5.4"></label>
+      <label>Углеводы, г<input type="number" id="f-carbs" required min="0" step="any" placeholder="0"></label>
+      <button type="submit">Добавить приём пищи</button>
+    </form>
+    <p id="form-error" class="error" hidden></p>
+  </section>
+
+  <section>
+    <h2>Приёмы пищи за день</h2>
+    <label>Дата: <input type="date" id="table-date"></label>
+    <button id="refresh-btn" type="button">Обновить</button>
+    <p id="table-error" class="error" hidden></p>
+    <table id="meals-table">
+      <thead>
+        <tr><th>Продукт</th><th>Вес, г</th><th>Калории, ккал</th><th>Белки, г</th><th>Жиры, г</th><th>Углеводы, г</th></tr>
+      </thead>
+      <tbody id="meals-tbody"></tbody>
+      <tfoot>
+        <tr id="totals-row"><td>Итого за день</td><td id="t-weight">0</td><td id="t-calories">0</td><td id="t-protein">0</td><td id="t-fat">0</td><td id="t-carbs">0</td></tr>
+      </tfoot>
+    </table>
+  </section>
+
+  <script src="app.js"></script>
+</body>
+</html>

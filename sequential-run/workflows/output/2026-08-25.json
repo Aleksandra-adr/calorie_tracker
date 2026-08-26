@@ -1,0 +1,24 @@
+{
+  "date": "2026-08-25",
+  "meal_count": 1,
+  "totals": {
+    "calories": 107.0,
+    "protein": 1.3,
+    "fat": 0.4,
+    "carbs": 27.5
+  },
+  "norm": {
+    "calories": 2000,
+    "protein": 50,
+    "fat": 65,
+    "carbs": 300
+  },
+  "diff": {
+    "calories": -1893.0,
+    "protein": -48.7,
+    "fat": -64.6,
+    "carbs": -272.5
+  },
+  "hash": "e5406d81acf7177948285a7e8f32b541e9e8a9345481b533a0810c684137922f",
+  "status": "recomputed"
+}

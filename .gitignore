@@ -6,3 +6,10 @@ storage/*.db
 storage/*.db-journal
 storage/*.db-wal
 storage/*.db-shm
+# `storage/*.db` above only matches at repo root — anchored patterns don't
+# apply inside sequential-run/ (a nested copy of the same app for the
+# sequential-vs-parallel comparison). This catches its DB file too.
+**/storage/*.db
+**/storage/*.db-journal
+**/storage/*.db-wal
+**/storage/*.db-shm
