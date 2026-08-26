@@ -226,6 +226,33 @@ GET /products/portion?product_name=<строка>&weight_grams=<число>
 ```
 
 Пример запроса: `GET /products/portion?product_name=Банан&weight_grams=150`.
+### 9. Недельный отчёт (CSV/PDF) — добавлено веткой `feature/weekly-export`
+
+```
+GET /reports/weekly?start_date=YYYY-MM-DD&format=csv|pdf
+```
+
+Тонкая HTTP-обёртка вокруг `workflows/weekly_export.py` (см. этот файл —
+там же формат CSV/PDF описан подробно и живой прогон CLI-версии). Данные
+всегда читаются напрямую из `storage/` (тот же процесс, та же БД, без
+HTTP-петли на себя же).
+
+- `start_date` — обязателен, начало недели (7 дней, `start_date` …
+  `start_date + 6`, включительно).
+- `format` — `csv` (по умолчанию) или `pdf`.
+- Ответ `200 OK`: файл `week_<start_date>.<format>` с заголовком
+  `Content-Disposition: attachment` (скачивание), `Content-Type`
+  `text/csv; charset=utf-8` для CSV и `application/pdf` для PDF.
+- `422 Unprocessable Entity` — некорректные `start_date`/`format`
+  (стандартная ошибка валидации FastAPI/pydantic, формат как в п.1).
+- `500 Internal Server Error` — не удалось прочитать `storage/` (см.
+  `detail` в теле ответа).
+
+Проверено вживую: `uvicorn`, `POST /meals` создаёт запись,
+`GET /reports/weekly?start_date=...&format=csv` и `...&format=pdf`
+возвращают `200 OK` с ожидаемыми `Content-Type`/`Content-Disposition` и
+непустым телом (файлы сопоставимого размера с локальным прогоном CLI на
+тех же данных).
 
 ## Общие соглашения об ошибках
 
@@ -269,3 +296,64 @@ GET /products/portion?product_name=<строка>&weight_grams=<число>
    вызывающему коду (workflow) нужно самому маппить поля — что он,
    судя по `normalize_meal()` в `daily_report.py`, уже умеет делать для
    обоих вариантов именования.
+
+## Добавлено 2026-08-25: `GET /meals/summary` — дневная норма и превышение
+
+Новый эндпоинт (не переопределяет ничего из перечисленного выше), добавлен
+в рамках задачи «предупреждение о превышении дневной нормы» в живом
+продукте (в отличие от `workflows/daily_report.py`, который считает то же
+самое офлайн, для отчёта).
+
+```
+GET /meals/summary?date=YYYY-MM-DD
+GET /meals/summary?date=YYYY-MM-DD&calories=2200&proteins=120&fats=70&carbs=280
+```
+
+- `date` (обязателен) — календарный день, тот же смысл, что у `date` в
+  `GET /meals?date=...` (интервал `[date 00:00:00, date+1 00:00:00)` по
+  `consumed_at`).
+- `calories`/`proteins`/`fats`/`carbs` (все опциональны, `>= 0`) —
+  переопределяют норму **только для этого запроса**, ничего не
+  сохраняется на сервере. Если не переданы — норма берётся из
+  `workflows/config.json` (тот же файл, что использует
+  `workflows/daily_report.py`) — единый источник истины для значений по
+  умолчанию (2000 ккал / 50 Б / 65 Ж / 300 У на 2026-08-25). Файл читается
+  как данные (JSON), без импорта пакета `workflows/` — `api/` и
+  `workflows/` остаются независимыми зонами. Если файл недоступен —
+  используются те же числа как захардкоженный fallback внутри `api/main.py`.
+
+Считает сумму калорий/БЖУ по всем записям за день (напрямую через
+`storage.meal_repository.list_meals`, как и `GET /meals?date=...`) и
+сравнивает с нормой. Логика статуса: `percent_of_norm = actual / norm * 100`;
+`status = "exceeded"`, если `percent_of_norm >= 100`; `"near"`, если
+`90 <= percent_of_norm < 100`; иначе `"ok"`. Пороги захардкожены в
+`api/main.py` (`NEAR_NORM_THRESHOLD_PERCENT = 90.0`), не настраиваются
+через query.
+
+Ответ `200 OK` (`MealsSummaryResponse` из `api/schemas.py`):
+```json
+{
+  "date": "2026-08-25",
+  "meals_count": 2,
+  "totals": {"calories": 2200.0, "proteins": 40.0, "fats": 70.0, "carbs": 310.0},
+  "norms": {"calories": 2000.0, "proteins": 50.0, "fats": 65.0, "carbs": 300.0},
+  "diff": {
+    "calories": {"actual": 2200.0, "norm": 2000.0, "diff": 200.0, "percent_of_norm": 110.0, "status": "exceeded"},
+    "proteins": {"actual": 40.0, "norm": 50.0, "diff": -10.0, "percent_of_norm": 80.0, "status": "ok"},
+    "fats": {"actual": 70.0, "norm": 65.0, "diff": 5.0, "percent_of_norm": 107.7, "status": "exceeded"},
+    "carbs": {"actual": 310.0, "norm": 300.0, "diff": 10.0, "percent_of_norm": 103.3, "status": "exceeded"}
+  }
+}
+```
+
+Нет записей за день — `200 OK`, `meals_count: 0`, все `totals` нулевые,
+`diff[k].status` не может быть `"exceeded"`/`"near"` при нулевом факте
+(если норма не переопределена в 0 явно). `422 Unprocessable Entity` —
+если `date` не парсится как дата или переопределения нормы отрицательны
+(стандартный формат ошибок FastAPI/pydantic, как в остальном API).
+
+Используется фронтендом (`frontend/app.js::apiGetSummary`) для того,
+чтобы подсветить итоговую строку таблицы «Приёмы пищи за день» и вывести
+текстовые предупреждения вида «Превышена норма по калориям на 200 ккал
+(110% от нормы)» — см. `frontend/app.js::renderNormWarnings` и
+`.norm-warning`/`.summary-row.exceeded-norm` в `frontend/style.css`.

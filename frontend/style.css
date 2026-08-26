@@ -218,6 +218,45 @@ tr.summary-row td {
   border-bottom: none;
 }
 
+/* Итоговая строка меняет цвет, когда за день превышена (или близка к
+   превышению) норма по калориям/БЖУ — см. GET /meals/summary и
+   renderNormWarnings() в app.js. */
+tr.summary-row.near-norm td {
+  background: var(--color-warning-bg);
+}
+
+tr.summary-row.exceeded-norm td {
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+}
+
+.norm-warnings {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.norm-warning {
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border: 1px solid transparent;
+}
+
+.norm-warning.exceeded {
+  background: var(--color-danger-bg);
+  border-color: #f0b8b5;
+  color: var(--color-danger);
+}
+
+.norm-warning.near {
+  background: var(--color-warning-bg);
+  border-color: var(--color-warning-border);
+  color: #7a5b0a;
+}
+
 tr.empty-row td {
   color: var(--color-muted);
   font-style: italic;

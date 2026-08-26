@@ -10,6 +10,7 @@ first thing to reject bad input in normal operation.
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -134,3 +135,31 @@ class PortionResponse(BaseModel):
     proteins: float = Field(..., ge=0)
     fats: float = Field(..., ge=0)
     carbs: float = Field(..., ge=0)
+class NutrientDiff(BaseModel):
+    """Факт/норма/разница по одному показателю (калории или один из БЖУ)
+    за день — см. GET /meals/summary. Форма намеренно зеркалит
+    workflows/daily_report.py::compute_diff(), но реализована отдельно,
+    чтобы api/ не зависел от workflows/ (тот же принцип независимости
+    модулей, что уже используется в calculations/, см. REPORT.md п.3.2).
+    """
+
+    actual: float = Field(..., description="Фактическая сумма за день")
+    norm: float = Field(..., description="Дневная норма (из workflows/config.json либо переданная в query)")
+    diff: float = Field(..., description="actual - norm; положительное значение = превышение")
+    percent_of_norm: Optional[float] = Field(
+        None, description="actual / norm * 100, округлено до 1 знака; null, если norm == 0"
+    )
+    status: str = Field(
+        ..., description="'ok' | 'near' (>=90% от нормы) | 'exceeded' (>=100% от нормы)"
+    )
+
+
+class MealsSummaryResponse(BaseModel):
+    """Ответ GET /meals/summary?date=YYYY-MM-DD — дневные итоги + норма +
+    флаги превышения по каждому показателю."""
+
+    date: str
+    meals_count: int
+    totals: dict[str, float]
+    norms: dict[str, float]
+    diff: dict[str, NutrientDiff]
