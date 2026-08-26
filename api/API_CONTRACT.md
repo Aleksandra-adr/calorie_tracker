@@ -146,6 +146,34 @@ GET /health
 Ответ `200 OK`: `{"status": "ok"}`. Не требует БД (не гарантирует, что
 `init_db()` выполнился, только что процесс жив).
 
+### 7. Недельный отчёт (CSV/PDF) — добавлено веткой `feature/weekly-export`
+
+```
+GET /reports/weekly?start_date=YYYY-MM-DD&format=csv|pdf
+```
+
+Тонкая HTTP-обёртка вокруг `workflows/weekly_export.py` (см. этот файл —
+там же формат CSV/PDF описан подробно и живой прогон CLI-версии). Данные
+всегда читаются напрямую из `storage/` (тот же процесс, та же БД, без
+HTTP-петли на себя же).
+
+- `start_date` — обязателен, начало недели (7 дней, `start_date` …
+  `start_date + 6`, включительно).
+- `format` — `csv` (по умолчанию) или `pdf`.
+- Ответ `200 OK`: файл `week_<start_date>.<format>` с заголовком
+  `Content-Disposition: attachment` (скачивание), `Content-Type`
+  `text/csv; charset=utf-8` для CSV и `application/pdf` для PDF.
+- `422 Unprocessable Entity` — некорректные `start_date`/`format`
+  (стандартная ошибка валидации FastAPI/pydantic, формат как в п.1).
+- `500 Internal Server Error` — не удалось прочитать `storage/` (см.
+  `detail` в теле ответа).
+
+Проверено вживую: `uvicorn`, `POST /meals` создаёт запись,
+`GET /reports/weekly?start_date=...&format=csv` и `...&format=pdf`
+возвращают `200 OK` с ожидаемыми `Content-Type`/`Content-Disposition` и
+непустым телом (файлы сопоставимого размера с локальным прогоном CLI на
+тех же данных).
+
 ## Общие соглашения об ошибках
 
 - `400 Bad Request` — некорректная комбинация query-параметров (см. `GET /meals`).

@@ -11,14 +11,17 @@ coordinator's report for full setup instructions.)
 
 from __future__ import annotations
 
+
 import json
+import tempfile
+
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Optional
 
 from fastapi import FastAPI, HTTPException, Query, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 
 from models.meal import MealEntry
 from storage.db import init_db
@@ -301,3 +304,58 @@ def delete_meal_entry(meal_id: int) -> None:
 @app.get("/health")
 def health() -> dict:
     return {"status": "ok"}
+
+
+@app.get(
+    "/reports/weekly",
+    responses={
+        200: {"content": {"text/csv": {}, "application/pdf": {}}},
+        422: {"model": ErrorResponse},
+    },
+)
+def get_weekly_report(
+    start_date: date = Query(..., description="Start of the week (YYYY-MM-DD), inclusive."),
+    format: str = Query("csv", pattern="^(csv|pdf)$", description="csv or pdf"),
+):
+    """Generate and download the weekly CSV/PDF report for the 7-day period
+    starting at ``start_date`` (see workflows/weekly_export.py - this
+    endpoint is a thin HTTP wrapper around the same aggregation/rendering
+    functions, reading meals directly from storage/ rather than looping
+    back through HTTP).
+    """
+    # Local import: keeps workflows/ a script-first module (importable, but
+    # not a hard dependency of the API at process-startup time) and avoids
+    # any import-order surprises between api/ and workflows/.
+    from workflows.weekly_export import (
+        build_daily_breakdown,
+        build_pdf,
+        build_week_totals,
+        get_meals_for_week,
+        write_csv,
+    )
+
+    try:
+        meals, source_used = get_meals_for_week(start_date, "storage", None, Path())
+    except Exception as err:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=f"Could not load meals from storage: {err!r}") from err
+
+    daily_rows, agg_day_source = build_daily_breakdown(meals, start_date)
+    week_totals, agg_week_source = build_week_totals(meals, start_date)
+    end_date = start_date + timedelta(days=6)
+    meta = {
+        "data_source": source_used,
+        "aggregation_source": agg_week_source if agg_week_source == agg_day_source else f"{agg_day_source}/{agg_week_source}",
+        "generated_at": datetime.now().isoformat(timespec="seconds"),
+    }
+
+    tmp_dir = Path(tempfile.gettempdir())
+    filename = f"week_{start_date.isoformat()}.{format}"
+
+    if format == "csv":
+        out_path = tmp_dir / f"api_weekly_report_{start_date.isoformat()}.csv"
+        write_csv(daily_rows, week_totals, start_date, end_date, meta, out_path)
+        return FileResponse(out_path, media_type="text/csv; charset=utf-8", filename=filename)
+
+    out_path = tmp_dir / f"api_weekly_report_{start_date.isoformat()}.pdf"
+    build_pdf(daily_rows, week_totals, start_date, end_date, meta, out_path)
+    return FileResponse(out_path, media_type="application/pdf", filename=filename)
