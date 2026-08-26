@@ -41,11 +41,10 @@ from api.schemas import (
     MealEntryCreate,
     MealEntryResponse,
     MealEntryUpdate,
-    PortionResponse,
-    ProductResponse,
-)
     MealsSummaryResponse,
     NutrientDiff,
+    PortionResponse,
+    ProductResponse,
 )
 
 # --- Дневная норма калорий/БЖУ -------------------------------------------

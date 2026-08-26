@@ -244,6 +244,9 @@ async function apiGetPortion(productName, weightGrams) {
     weight_grams: String(weightGrams),
   }).toString();
   return apiRequest(`/products/portion?${qs}`, { method: 'GET' });
+}
+
+/**
  * GET /meals/summary?date=... — итоги за день + норма + флаги превышения,
  * посчитанные backend'ом (см. api/API_CONTRACT.md, раздел "GET /meals/summary").
  * Норма там читается из workflows/config.json — единого источника истины
@@ -501,6 +504,9 @@ function onNutritionFieldManualEdit() {
 
 function setCatalogHint(text) {
   els.catalogHint.textContent = text || '';
+}
+
+/* ---------------------------------------------------------------------- */
 /* Предупреждение о превышении дневной нормы                              */
 /* ---------------------------------------------------------------------- */
 
