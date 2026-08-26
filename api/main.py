@@ -13,13 +13,16 @@ from __future__ import annotations
 
 
 import json
+import math
 import tempfile
 
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI, HTTPException, Query, status
+from fastapi import FastAPI, HTTPException, Query, Request, status
+from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 
@@ -155,6 +158,33 @@ def _meal_not_found_handler(request, exc: MealNotFoundError):
         status_code=status.HTTP_404_NOT_FOUND,
         content={"detail": f"Meal entry {exc.meal_id} not found"},
     )
+
+
+def _sanitize_for_json(value):
+    """Replace non-finite floats (NaN/Infinity/-Infinity) with their string
+    form, recursively.
+
+    Pydantic correctly rejects a NaN/Infinity request value (comparisons
+    like `value > 0` are simply False for NaN), but the *rejected value
+    itself* is echoed back inside the 422 error body via
+    ``RequestValidationError.errors()``. Starlette's default JSONResponse
+    calls `json.dumps(..., allow_nan=False)`, which raises ValueError on a
+    literal NaN/inf instead of emitting one - turning an ordinary validation
+    error into an unhandled 500. See sessions/session-2.md, finding #1.
+    """
+    if isinstance(value, float) and not math.isfinite(value):
+        return str(value)
+    if isinstance(value, dict):
+        return {key: _sanitize_for_json(v) for key, v in value.items()}
+    if isinstance(value, list):
+        return [_sanitize_for_json(v) for v in value]
+    return value
+
+
+@app.exception_handler(RequestValidationError)
+async def _validation_exception_handler(request: Request, exc: RequestValidationError):
+    safe_errors = _sanitize_for_json(jsonable_encoder(exc.errors()))
+    return JSONResponse(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, content={"detail": safe_errors})
 
 
 @app.post(
